@@ -1,0 +1,16 @@
+# Cloudflare Pages caching rules.
+#
+# The service worker and the app shell must never be cached by the CDN: with
+# registerType 'autoUpdate' the browser discovers a new build by re-fetching
+# sw.js, so a cached copy pins everyone to an old version indefinitely.
+/sw.js
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Build assets carry a content hash in the filename, so a given URL's contents
+# never change and it is safe to cache them forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
