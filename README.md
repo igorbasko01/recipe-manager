@@ -56,6 +56,35 @@ network at all.
 
 Because there is no sync, the export is your only backup. Take one occasionally.
 
+## Deploying
+
+The app is a static build with no backend, so any static host works. It is
+deployed to Cloudflare Pages at https://recipes.baskorp.com.
+
+Pages project settings:
+
+| Setting | Value |
+|---|---|
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Node version | 22 |
+
+`public/_headers` ships the caching rules Pages needs. They matter: the build
+registers the service worker with `autoUpdate`, so the browser finds a new
+release by re-fetching `sw.js`. If the CDN caches that file, every visitor stays
+pinned to the build they first loaded. Hashed files under `assets/` are cached
+forever instead, since their contents can never change.
+
+`base` is `'./'`, so the same build also works from a subdirectory
+(`vite build --base=/recipes/`) if it ever moves under another site.
+
+### A note on moving it
+
+IndexedDB is scoped to an origin. Serving the app from a different host — or
+from a path on a different host — gives it an empty database; the recipes stay
+behind at the old origin. If the URL ever has to change, export a backup first
+and import it on the other side.
+
 ## Stack
 
 Vite · React · TypeScript · Dexie (IndexedDB) · MiniSearch · vite-plugin-pwa
