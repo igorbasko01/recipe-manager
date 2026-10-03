@@ -1,11 +1,14 @@
-import { emptyIngredient, type Ingredient } from './types';
+import { emptyIngredient } from './types';
 
-/** All of these return a new array; the editor holds ingredients in React state. */
+/**
+ * All of these return a new array; the editor holds its rows in React state.
+ * Generic over the row shape so ingredients and steps share them.
+ */
 
-export function addRow<T extends Ingredient>(
+export function addRow<T extends object>(
   rows: T[],
   afterIndex?: number,
-  makeEmpty: () => T = emptyIngredient as () => T,
+  makeEmpty: () => T = emptyIngredient as unknown as () => T,
 ): T[] {
   const next = [...rows];
   const at = afterIndex === undefined ? next.length : afterIndex + 1;
@@ -14,17 +17,17 @@ export function addRow<T extends Ingredient>(
 }
 
 /** Removing the last row leaves a blank one, so the form always has a place to type. */
-export function removeRow<T extends Ingredient>(
+export function removeRow<T extends object>(
   rows: T[],
   index: number,
-  makeEmpty: () => T = emptyIngredient as () => T,
+  makeEmpty: () => T = emptyIngredient as unknown as () => T,
 ): T[] {
   if (index < 0 || index >= rows.length) return rows;
   const next = rows.filter((_, i) => i !== index);
   return next.length ? next : [makeEmpty()];
 }
 
-export function moveRow<T extends Ingredient>(rows: T[], from: number, to: number): T[] {
+export function moveRow<T extends object>(rows: T[], from: number, to: number): T[] {
   if (from < 0 || from >= rows.length || to < 0 || to >= rows.length || from === to) return rows;
   const next = [...rows];
   const [row] = next.splice(from, 1);
@@ -32,7 +35,7 @@ export function moveRow<T extends Ingredient>(rows: T[], from: number, to: numbe
   return next;
 }
 
-export function updateRow<T extends Ingredient>(
+export function updateRow<T extends object>(
   rows: T[],
   index: number,
   patch: Partial<T>,

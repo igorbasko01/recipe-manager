@@ -166,7 +166,9 @@ button:disabled { opacity: 0.3; cursor: default; }
 .ing-name { flex: 1; }
 .ing-note { color: var(--ink-soft); font-size: 0.88rem; font-style: italic; }
 
-.instructions { white-space: pre-wrap; font-family: var(--serif); font-size: 1.08rem; line-height: 1.7; }
+.steps { margin: 0; padding-left: 1.6rem; font-family: var(--serif); font-size: 1.08rem; line-height: 1.7; }
+.steps li { white-space: pre-wrap; padding: 0.35rem 0 0.35rem 0.3rem; }
+.steps li::marker { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 .view-footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
 
@@ -208,6 +210,7 @@ textarea { resize: vertical; font-family: var(--serif); line-height: 1.7; }
 .unit { flex: 0 0 5.5rem; }
 .name { flex: 1; }
 .note { flex: 1; font-size: 0.92rem; }
+.step-row .row-actions { margin-top: 0.4rem; justify-content: flex-end; }
 
 .row-actions { display: flex; gap: 0.2rem; }
 .row-actions button {

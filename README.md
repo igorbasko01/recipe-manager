@@ -27,14 +27,14 @@ Screen" / "Install app"), and switch off the network.
 numeric and nullable, so "salt, to taste" is a row with no amount. Fractions are
 parsed as you type — `1/2`, `1 1/2` and `½` all work — and displayed back as
 fractions rather than decimals. The unit is free text, backed by a datalist of
-every unit you have already used. Instructions are plain text.
+every unit you have already used. Instructions are a numbered list of steps.
 
 **Search.** Fuzzy and prefix matching across titles, ingredient names and
-instructions, with titles weighted highest. The index is built in memory at
+steps, with titles weighted highest. The index is built in memory at
 startup and updated as you save, so results appear as you type.
 
-**Editing.** The form writes straight to IndexedDB. Ingredient rows can be
-added, removed and reordered individually. The edit in progress is autosaved as
+**Editing.** The form writes straight to IndexedDB. Ingredient rows and steps can
+be added, removed and reordered individually. The edit in progress is autosaved as
 a draft, debounced while you type and flushed the moment the tab is hidden, so a
 backgrounded tab loses nothing — reopen the editor and your changes are there.
 

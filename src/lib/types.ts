@@ -11,8 +11,8 @@ export interface Recipe {
   id: string;
   title: string;
   ingredients: Ingredient[];
-  /** Instructions are plain text. */
-  instructions: string;
+  /** One entry per step, in the order they are followed. */
+  steps: string[];
   createdAt: number;
   updatedAt: number;
 }
