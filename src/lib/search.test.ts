@@ -2,20 +2,20 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { RecipeSearch } from './search';
 import type { Recipe } from './types';
 
-function recipe(id: string, title: string, ingredients: string[], instructions = ''): Recipe {
+function recipe(id: string, title: string, ingredients: string[], steps: string[] = []): Recipe {
   return {
     id,
     title,
     ingredients: ingredients.map((name) => ({ amount: null, unit: '', name, note: '' })),
-    instructions,
+    steps,
     createdAt: 0,
     updatedAt: 0,
   };
 }
 
-const pancakes = recipe('1', 'Buttermilk Pancakes', ['flour', 'buttermilk', 'egg'], 'Whisk the batter.');
-const soup = recipe('2', 'Tomato Soup', ['tomato', 'onion', 'cream'], 'Simmer gently for an hour.');
-const bread = recipe('3', 'Sourdough Bread', ['flour', 'water', 'salt'], 'Fold the dough every hour.');
+const pancakes = recipe('1', 'Buttermilk Pancakes', ['flour', 'buttermilk', 'egg'], ['Whisk the batter.', 'Fry in butter.']);
+const soup = recipe('2', 'Tomato Soup', ['tomato', 'onion', 'cream'], ['Simmer gently for an hour.']);
+const bread = recipe('3', 'Sourdough Bread', ['flour', 'water', 'salt'], ['Fold the dough every hour.']);
 
 let search: RecipeSearch;
 
@@ -39,9 +39,17 @@ describe('RecipeSearch', () => {
     expect(ids).toContain('1');
   });
 
-  it('matches on instructions', () => {
+  it('matches on step text', () => {
     const ids = search.search('simmer').map((r) => r.id);
     expect(ids).toContain('2');
+  });
+
+  it('matches text in any step, not just the first', () => {
+    expect(search.search('butter').map((r) => r.id)).toContain('1');
+  });
+
+  it('matches terms spread across different steps', () => {
+    expect(search.search('whisk fry').map((r) => r.id)).toEqual(['1']);
   });
 
   it('matches on prefixes', () => {
@@ -55,8 +63,8 @@ describe('RecipeSearch', () => {
   });
 
   it('boosts a title match above a body match for the same term', () => {
-    const withTitleTerm = recipe('4', 'Onion Tart', ['pastry'], '');
-    const withBodyTerm = recipe('5', 'Beef Stew', ['beef'], 'Add onion and cook down.');
+    const withTitleTerm = recipe('4', 'Onion Tart', ['pastry']);
+    const withBodyTerm = recipe('5', 'Beef Stew', ['beef'], ['Add onion and cook down.']);
     search = new RecipeSearch();
     search.addAll([withTitleTerm, withBodyTerm]);
 
@@ -79,7 +87,7 @@ describe('RecipeSearch', () => {
   });
 
   it('adds a recipe incrementally', () => {
-    search.update(recipe('9', 'Risotto', ['rice'], ''));
+    search.update(recipe('9', 'Risotto', ['rice']));
     expect(search.search('risotto').map((r) => r.id)).toContain('9');
   });
 

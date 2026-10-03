@@ -9,7 +9,7 @@ function sample(title: string): Recipe {
     ...createRecipe(),
     title,
     ingredients: [{ amount: 0.5, unit: 'cup', name: 'sugar', note: '' }],
-    instructions: 'Stir.',
+    steps: ['Stir.'],
   };
 }
 
@@ -139,5 +139,22 @@ describe('importBackup', () => {
     });
     expect(result.recipes).toBe(1);
     expect(await listRecipes()).toHaveLength(1);
+  });
+
+  it('skips recipes whose steps are not a list of strings', async () => {
+    const { steps: _, ...withoutSteps } = sample('no steps');
+    const result = await importBackup({
+      format: 'recipe-manager-backup',
+      version: 1,
+      exportedAt: 0,
+      recipes: [
+        sample('good'),
+        { ...withoutSteps, instructions: 'Stir.' } as unknown as Recipe,
+        { ...sample('bad step'), steps: ['Stir.', 3] } as unknown as Recipe,
+      ],
+      versions: [],
+    });
+    expect(result.recipes).toBe(1);
+    expect((await listRecipes())[0].steps).toEqual(['Stir.']);
   });
 });

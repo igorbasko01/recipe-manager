@@ -10,7 +10,7 @@ interface IndexedRecipe {
   id: string;
   title: string;
   ingredients: string;
-  instructions: string;
+  steps: string;
 }
 
 function toDocument(recipe: Recipe): IndexedRecipe {
@@ -18,7 +18,7 @@ function toDocument(recipe: Recipe): IndexedRecipe {
     id: recipe.id,
     title: recipe.title,
     ingredients: recipe.ingredients.map((i) => `${i.name} ${i.note}`.trim()).join(' '),
-    instructions: recipe.instructions,
+    steps: recipe.steps.join(' '),
   };
 }
 
@@ -32,7 +32,7 @@ export class RecipeSearch {
 
   constructor() {
     this.index = new MiniSearch<IndexedRecipe>({
-      fields: ['title', 'ingredients', 'instructions'],
+      fields: ['title', 'ingredients', 'steps'],
       storeFields: ['id'],
       searchOptions: {
         prefix: true,

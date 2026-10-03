@@ -9,7 +9,7 @@ function sample(title: string, ingredients: string[] = ['flour']): Recipe {
     ...createRecipe(),
     title,
     ingredients: ingredients.map((name) => ({ amount: 1, unit: 'cup', name, note: '' })),
-    instructions: `How to make ${title}.`,
+    steps: [`How to make ${title}.`],
   };
 }
 
@@ -69,7 +69,7 @@ describe('RecipeStore', () => {
   it('keeps the search index current when a recipe is saved', async () => {
     await store.load();
     const saved = await store.save(sample('Pancakes'));
-    await store.save({ ...saved, title: 'Crepes', instructions: 'Thin batter.' });
+    await store.save({ ...saved, title: 'Crepes', steps: ['Thin batter.'] });
 
     expect(store.query('crepes').map((r) => r.title)).toEqual(['Crepes']);
     expect(store.query('pancakes')).toEqual([]);

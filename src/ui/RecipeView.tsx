@@ -68,9 +68,11 @@ export function RecipeBody({ recipe }: { recipe: Recipe }) {
       </section>
 
       <section>
-        <h2>Instructions</h2>
-        {recipe.instructions.trim() ? (
-          <div className="instructions">{recipe.instructions}</div>
+        <h2>Steps</h2>
+        {recipe.steps.length ? (
+          <ol className="steps" aria-label="Steps">
+            {recipe.steps.map((step, index) => <li key={index}>{step}</li>)}
+          </ol>
         ) : (
           <p className="empty">None written.</p>
         )}

@@ -73,3 +73,20 @@ describe('updateRow', () => {
     expect(updateRow(rows, 9, { name: 'nope' })).toEqual(rows);
   });
 });
+
+describe('helpers on rows that are not ingredients', () => {
+  type Step = { text: string };
+  const emptyStep = (): Step => ({ text: '' });
+  const steps: Step[] = [{ text: 'whisk' }, { text: 'rest' }, { text: 'fry' }];
+
+  it('adds, removes, moves and updates generic rows', () => {
+    expect(addRow(steps, 0, emptyStep).map((s) => s.text)).toEqual(['whisk', '', 'rest', 'fry']);
+    expect(removeRow(steps, 1, emptyStep).map((s) => s.text)).toEqual(['whisk', 'fry']);
+    expect(moveRow(steps, 2, 0).map((s) => s.text)).toEqual(['fry', 'whisk', 'rest']);
+    expect(updateRow(steps, 1, { text: 'rest 10 min' })[1]).toEqual({ text: 'rest 10 min' });
+  });
+
+  it('leaves a blank row of the right shape when the last is removed', () => {
+    expect(removeRow([{ text: 'only' }], 0, emptyStep)).toEqual([{ text: '' }]);
+  });
+});
