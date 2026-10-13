@@ -27,6 +27,20 @@ function toIngredients(rows: EditorRow[]): Ingredient[] {
     }));
 }
 
+/** Steps are held as rows so they can share the ingredient row helpers. */
+type StepRow = { text: string };
+
+const emptyStep = (): StepRow => ({ text: '' });
+
+function toStepRows(steps: string[]): StepRow[] {
+  if (!steps.length) return [emptyStep()];
+  return steps.map((text) => ({ text }));
+}
+
+function toSteps(rows: StepRow[]): string[] {
+  return rows.map((row) => row.text.trim()).filter((text) => text !== '');
+}
+
 interface Props {
   store: RecipeStore;
   recipeId: string | null;
@@ -42,8 +56,8 @@ export function RecipeEditor({ store, recipeId, onSaved, onCancel }: Props) {
   );
 
   const [title, setTitle] = useState(original.title);
-  const [instructions, setInstructions] = useState(original.instructions);
   const [rows, setRows] = useState<EditorRow[]>(() => toRows(original.ingredients));
+  const [steps, setSteps] = useState<StepRow[]>(() => toStepRows(original.steps));
   const [draftRestored, setDraftRestored] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -53,16 +67,16 @@ export function RecipeEditor({ store, recipeId, onSaved, onCancel }: Props) {
     void getDraft(original.id).then((draft) => {
       if (cancelled || !draft) return;
       setTitle(draft.recipe.title);
-      setInstructions(draft.recipe.instructions);
       setRows(toRows(draft.recipe.ingredients));
+      setSteps(toStepRows(draft.recipe.steps));
       setDraftRestored(true);
     });
     return () => { cancelled = true; };
   }, [original.id]);
 
   const working: Recipe = useMemo(
-    () => ({ ...original, title, instructions, ingredients: toIngredients(rows) }),
-    [original, title, instructions, rows],
+    () => ({ ...original, title, ingredients: toIngredients(rows), steps: toSteps(steps) }),
+    [original, title, rows, steps],
   );
 
   useDraftAutosave(working, !saving);
@@ -203,15 +217,54 @@ export function RecipeEditor({ store, recipeId, onSaved, onCancel }: Props) {
         </datalist>
       </section>
 
-      <label className="field">
-        <span>Instructions</span>
-        <textarea
-          rows={12}
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          placeholder="Whisk the dry ingredients…"
-        />
-      </label>
+      <section className="field">
+        <span className="field-label">Steps</span>
+        <ol className="rows">
+          {steps.map((step, index) => (
+            <li key={index} className="row step-row">
+              <textarea
+                className="step-input"
+                aria-label={`Step ${index + 1}`}
+                rows={3}
+                value={step.text}
+                onChange={(e) => setSteps((c) => updateRow(c, index, { text: e.target.value }))}
+                placeholder={index === 0 ? 'Whisk the dry ingredients…' : ''}
+              />
+              <div className="row-actions">
+                <button
+                  type="button"
+                  aria-label={`Move step ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => setSteps((c) => moveRow(c, index, index - 1))}
+                >↑</button>
+                <button
+                  type="button"
+                  aria-label={`Move step ${index + 1} down`}
+                  disabled={index === steps.length - 1}
+                  onClick={() => setSteps((c) => moveRow(c, index, index + 1))}
+                >↓</button>
+                <button
+                  type="button"
+                  aria-label={`Remove step ${index + 1}`}
+                  onClick={() => setSteps((c) => removeRow(c, index, emptyStep))}
+                >✕</button>
+                <button
+                  type="button"
+                  aria-label={`Add step after ${index + 1}`}
+                  onClick={() => setSteps((c) => addRow(c, index, emptyStep))}
+                >+</button>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <button
+          type="button"
+          className="ghost wide"
+          onClick={() => setSteps((c) => addRow(c, undefined, emptyStep))}
+        >
+          Add step
+        </button>
+      </section>
     </form>
   );
 }

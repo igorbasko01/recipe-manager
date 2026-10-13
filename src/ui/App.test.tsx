@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import { db } from '../lib/db';
@@ -15,8 +15,8 @@ function renderApp() {
 
 async function addRecipe(
   user: ReturnType<typeof userEvent.setup>,
-  { title, amount = '1 1/2', unit = 'cup', name = 'flour', instructions = 'Mix it.' }:
-    { title: string; amount?: string; unit?: string; name?: string; instructions?: string },
+  { title, amount = '1 1/2', unit = 'cup', name = 'flour', step = 'Mix it.' }:
+    { title: string; amount?: string; unit?: string; name?: string; step?: string },
 ) {
   await user.click(await screen.findByRole('button', { name: 'New' }));
   const fill = async (label: string, value: string) => {
@@ -26,7 +26,7 @@ async function addRecipe(
   await fill('Amount for ingredient 1', amount);
   await fill('Unit for ingredient 1', unit);
   await fill('Name for ingredient 1', name);
-  await fill('Instructions', instructions);
+  await fill('Step 1', step);
   await user.click(screen.getByRole('button', { name: 'Save' }));
   await screen.findByRole('heading', { name: title, level: 1 });
 }
@@ -140,12 +140,65 @@ describe('ingredient rows', () => {
   });
 });
 
-describe('search', () => {
-  it('filters the list by title, ingredient and instruction text', async () => {
+describe('steps', () => {
+  it('adds, reorders and removes steps, and saves them in order', async () => {
     const { user } = renderApp();
-    await addRecipe(user, { title: 'Pancakes', name: 'flour', instructions: 'Whisk well.' });
+    await user.click(await screen.findByRole('button', { name: 'New' }));
+    await user.type(screen.getByLabelText('Title'), 'Pancakes');
+
+    await user.type(screen.getByLabelText('Step 1'), 'Fry.');
+    await user.click(screen.getByRole('button', { name: 'Add step' }));
+    await user.type(screen.getByLabelText('Step 2'), 'Whisk.');
+    await user.click(screen.getByRole('button', { name: 'Add step' }));
+    await user.type(screen.getByLabelText('Step 3'), 'Discard me.');
+
+    await user.click(screen.getByRole('button', { name: 'Move step 2 up' }));
+    expect(screen.getByLabelText('Step 1')).toHaveValue('Whisk.');
+    expect(screen.getByLabelText('Step 2')).toHaveValue('Fry.');
+
+    await user.click(screen.getByRole('button', { name: 'Remove step 3' }));
+    expect(screen.queryByLabelText('Step 3')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByRole('heading', { name: 'Pancakes', level: 1 });
+
+    const [recipe] = await db.recipes.toArray();
+    expect(recipe.steps).toEqual(['Whisk.', 'Fry.']);
+  });
+
+  it('renders steps as a numbered list', async () => {
+    const { user } = renderApp();
+    await addRecipe(user, { title: 'Pancakes', step: 'Whisk.' });
+
+    const list = screen.getByRole('list', { name: 'Steps' });
+    expect(list.tagName).toBe('OL');
+    expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Whisk.']);
+  });
+
+  it('drops blank steps and shows a recipe without any', async () => {
+    const { user } = renderApp();
+    await addRecipe(user, { title: 'Toast', step: '' });
+
+    const [recipe] = await db.recipes.toArray();
+    expect(recipe.steps).toEqual([]);
+    expect(screen.getByText('None written.')).toBeInTheDocument();
+  });
+
+  it('loads saved steps back into the editor', async () => {
+    const { user } = renderApp();
+    await addRecipe(user, { title: 'Pancakes', step: 'Whisk.' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(screen.getByLabelText('Step 1')).toHaveValue('Whisk.');
+  });
+});
+
+describe('search', () => {
+  it('filters the list by title, ingredient and step text', async () => {
+    const { user } = renderApp();
+    await addRecipe(user, { title: 'Pancakes', name: 'flour', step: 'Whisk well.' });
     await user.click(screen.getByRole('button', { name: 'Back' }));
-    await addRecipe(user, { title: 'Tomato Soup', name: 'tomato', instructions: 'Simmer.' });
+    await addRecipe(user, { title: 'Tomato Soup', name: 'tomato', step: 'Simmer.' });
     await user.click(screen.getByRole('button', { name: 'Back' }));
 
     const search = screen.getByLabelText('Search recipes');
@@ -335,7 +388,7 @@ describe('backup', () => {
         id: 'imported-1',
         title: 'Imported Stew',
         ingredients: [{ amount: 2, unit: 'kg', name: 'beef', note: '' }],
-        instructions: 'Braise low.',
+        steps: ['Brown the beef.', 'Braise low.'],
         createdAt: 1,
         updatedAt: 2,
       }],

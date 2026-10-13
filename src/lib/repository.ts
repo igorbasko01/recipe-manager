@@ -17,7 +17,7 @@ export function createRecipe(): Recipe {
     id: newId(),
     title: '',
     ingredients: [emptyIngredient()],
-    instructions: '',
+    steps: [],
     createdAt: now,
     updatedAt: now,
   };

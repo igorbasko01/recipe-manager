@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { db } from './db';
 import {
   createRecipe,
@@ -21,7 +21,7 @@ function sample(overrides: Partial<Recipe> = {}): Recipe {
     ...createRecipe(),
     title: 'Pancakes',
     ingredients: [{ amount: 1.5, unit: 'cup', name: 'flour', note: 'sifted' }],
-    instructions: 'Mix and fry.',
+    steps: ['Mix.', 'Fry.'],
     ...overrides,
   };
 }
@@ -40,6 +40,7 @@ describe('createRecipe', () => {
     expect(a.title).toBe('');
     expect(a.ingredients).toHaveLength(1);
     expect(a.ingredients[0]).toEqual({ amount: null, unit: '', name: '', note: '' });
+    expect(a.steps).toEqual([]);
   });
 });
 
@@ -97,11 +98,35 @@ describe('saveRecipe', () => {
   });
 });
 
+describe('steps', () => {
+  it('round-trip through save and reload in order', async () => {
+    const saved = await saveRecipe(sample({ steps: ['Whisk.', 'Rest.', 'Fry.'] }));
+    expect((await getRecipe(saved.id))?.steps).toEqual(['Whisk.', 'Rest.', 'Fry.']);
+  });
+
+  it('keep a reordering across a save, with the old order in history', async () => {
+    const saved = await saveRecipe(sample({ steps: ['Whisk.', 'Rest.'] }));
+    await saveRecipe({ ...saved, steps: ['Rest.', 'Whisk.'] });
+
+    expect((await getRecipe(saved.id))?.steps).toEqual(['Rest.', 'Whisk.']);
+    expect((await listVersions(saved.id))[0].snapshot.steps).toEqual(['Whisk.', 'Rest.']);
+  });
+});
+
 describe('listRecipes', () => {
   it('returns recipes most recently updated first', async () => {
-    const a = await saveRecipe(sample({ title: 'A' }));
-    await saveRecipe(sample({ title: 'B' }));
-    await saveRecipe({ ...a, title: 'A again' });
+    // Saves in the same millisecond would tie on updatedAt; step the clock.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(1_000);
+      const a = await saveRecipe(sample({ title: 'A' }));
+      vi.setSystemTime(2_000);
+      await saveRecipe(sample({ title: 'B' }));
+      vi.setSystemTime(3_000);
+      await saveRecipe({ ...a, title: 'A again' });
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect((await listRecipes()).map((r) => r.title)).toEqual(['A again', 'B']);
   });

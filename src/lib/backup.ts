@@ -80,7 +80,8 @@ function isRecipe(value: unknown): value is Recipe {
     typeof r.id === 'string' &&
     typeof r.title === 'string' &&
     Array.isArray(r.ingredients) &&
-    typeof r.instructions === 'string' &&
+    Array.isArray(r.steps) &&
+    r.steps.every((step) => typeof step === 'string') &&
     typeof r.createdAt === 'number' &&
     typeof r.updatedAt === 'number'
   );
