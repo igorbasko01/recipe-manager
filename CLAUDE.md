@@ -4,85 +4,109 @@ Guidance for working in this repository.
 
 ## What this is
 
-A personal, offline-first recipe manager, built as a Progressive Web App.
-Single-user, installed to a phone's home screen, works with no network.
-Everything lives on-device: no accounts, no server, no sync.
+A personal, offline-first recipe manager. Single-user, installed to a phone's
+home screen as a PWA, works with no network. Everything lives on-device: no
+accounts, no server, no sync.
+
+The app is being rebuilt in **Flutter (web)**, following the spec in issue #6
+and its sub-issues. Native Android/iOS builds will come later from the same
+Dart code; for now the only platform is web.
+
+`src/`, `package.json`, `vite.config.ts` and friends are the **legacy React
+app**. It is kept only as the reference for behaviour (port its tests, don't
+extend it) and will be deleted by the final sub-issue.
 
 ## Commands
 
 ```bash
-npm install
-npm run dev        # Vite dev server
-npm test           # Vitest, single run
-npm run test:watch # Vitest, watch mode
-npm run build      # tsc -b && vite build (emits dist/ with sw.js + manifest)
-npm run preview    # serve the production build, the only way to exercise the SW
+./setup.sh                 # once per clone: installs .githooks/pre-push
+flutter pub get
+flutter analyze            # static checks (flutter_lints)
+flutter test               # all tests
+flutter run -d chrome      # run the app
+flutter build web --base-href=/ --no-web-resources-cdn
+dart run build_runner build --delete-conflicting-outputs   # regenerate *.g.dart
 ```
 
-There is no lint step; `tsc` in strict mode is the static check, and it runs as
-part of `npm run build`.
+The pre-push hook runs `flutter analyze` then `flutter test` and aborts the
+push on failure.
+
+**Flutter in cloud sessions:** Flutter is available in Claude Code cloud
+sessions: the cloud environment installs it at session start (the project's
+pinned version, else latest stable, as CI uses), so run `flutter analyze` and
+`flutter test` there as you would locally. If `flutter` is missing, push the
+branch and let the `flutter_ci.yml` workflow run `flutter analyze` and
+`flutter test` on the PR, then read the CI result to verify.
 
 ## Architecture
 
-Data flows in one direction: **IndexedDB → repository → store → React**.
+What exists today: `lib/main.dart`, `lib/ui/app.dart` (a `MaterialApp`
+titled "Recipes" with a placeholder home page) and `lib/ui/theme.dart`
+(Material 3, light/dark from the system, warm neutral palette `#faf8f4` /
+`#16150f`). The `web/` shell carries the manifest, icons, `CNAME`
+(`recipes.baskorp.com`) and `.nojekyll`.
 
-- `src/lib/db.ts` — Dexie schema. Three tables: `recipes`, `versions`
-  (keyed `[recipeId+timestamp]`), `drafts`. Also `requestPersistence()`, called
-  once at startup to ask the browser not to evict us.
-- `src/lib/repository.ts` — all persistence. The important rule lives in
-  `saveRecipe`: **every save after the first writes a full snapshot of the
-  previous state** into `versions`. That is what makes history and revert work,
-  and it is why nothing else should write to `db.recipes` directly.
-- `src/lib/store.ts` — `RecipeStore`, the single source of truth at runtime.
-  Holds every recipe in memory for instant render, owns the MiniSearch index,
-  and notifies React through `useSyncExternalStore`. Mutations go through
-  `store.save/remove/revert` so the index and the in-memory list stay in step.
-- `src/lib/search.ts` — MiniSearch wrapper. Built at startup from the full
-  recipe list, updated incrementally per save. Prefix + fuzzy, title boosted.
-- `src/lib/amount.ts` — fraction parsing and formatting. Amounts are stored as
-  nullable numbers but typed and displayed as fractions (`1 1/2`, not `1.5`).
-- `src/lib/ingredients.ts` — pure add/remove/move/update helpers over an
-  ingredient array. Generic over the row type so the editor can carry its own
-  `amountText` alongside the parsed value.
-- `src/lib/backup.ts` — JSON export/import, including version history.
-- `src/ui/` — React. `App.tsx` is a small screen switch (list / view / edit /
-  history / backup); there is no router.
+Planned (see #6 for the full layout), data flows one way:
+**database (drift) → `RecipeRepository` → `RecipeStore` → widgets.**
 
-## Conventions
+- `lib/core/` — pure helpers (`amount.dart` fractions, `rows.dart` list
+  helpers) and platform seams.
+- `lib/features/recipes/data/` — the `Recipe`/`Ingredient`/`RecipeVersion`/
+  `Draft` model, the drift schema (`recipes`, `versions`, `drafts`, and an
+  FTS5 `recipes_fts` table for search), `RecipeRepository`, `RecipeStore`
+  (a `ChangeNotifier` provided with `provider`), and backup encode/parse.
+- `lib/ui/` — pages pushed with `Navigator` (no router): list, view, editor,
+  history, backup.
 
-- **Never write to Dexie outside `repository.ts`.** Saving elsewhere silently
-  skips the version snapshot.
-- **Never mutate a recipe in place.** The repository deep-copies on write, and
-  the store replaces arrays rather than mutating them.
-- Amounts are `number | null`; `null` means "no amount" (`salt, to taste`), not
-  zero. Parse with `parseAmount`, display with `formatAmount`.
-- The editor keeps the raw text the user typed (`amountText`) next to the parsed
-  number, so a half-typed `1 1/` does not get clobbered mid-keystroke.
-- Adding a field to `Recipe` means updating `isRecipe` in `backup.ts`, or
-  imported files will be silently rejected.
+## Rules
+
+- **Only `RecipeRepository` writes to the database.** Anything else would skip
+  the version snapshot and the search index.
+- **Snapshot-on-save:** every save after the first writes a full snapshot of
+  the *previous* state into `versions`, in the same transaction. Version keys
+  `(recipeId, timestamp)` must be distinct, so step the timestamp forward on a
+  collision. Revert is a save of the snapshot. Delete removes the recipe, its
+  versions and its draft.
+- **Immutability:** model classes are immutable (`copyWith`, `toJson`/
+  `fromJson`); the store replaces lists rather than mutating them. All times
+  are epoch milliseconds (`int`).
+- **Amounts** are `double?`; `null` means "no amount" (`salt, to taste`), not
+  zero. Parse with `parseAmount`, display with `formatAmount` (fractions such
+  as `1 1/2`). The editor keeps the raw text next to the parsed value so a
+  half-typed `1 1/` isn't clobbered.
+- **Drafts:** the editor autosaves a draft (debounced 600 ms, immediately when
+  the app is hidden); saving or cancelling discards it.
+- **Platform seams** (storage persistence, backup file sink, app updates) use
+  conditional imports: `foo.dart` declares the interface and `createFoo()`,
+  `foo_io.dart` / `foo_web.dart` implement it
+  (`if (dart.library.js_interop)`). Tests and native builds never touch
+  browser APIs.
+- Adding a field to `Recipe` means updating the backup validator, or imported
+  files will be silently rejected.
+
+## Generated and vendored files
+
+- `*.g.dart` files are generated by `build_runner`, **checked in, and never
+  edited by hand**. Regenerate after changing a drift table.
+- `pubspec.lock` is checked in; commit it after adding a package.
 
 ## Testing
 
-TDD: a failing test first, then the code. `npm test` must be green before a
-commit. Tests live next to the code they cover.
+TDD: a failing test first, then the code. Tests live under `test/` and mirror
+`lib/` (`lib/ui/app.dart` → `test/ui/app_test.dart`).
+`test/web/web_shell_test.dart` guards the PWA shell (manifest, icons, CNAME,
+base href). Database tests will use
+`RecipeDatabase.forTesting(NativeDatabase.memory())`.
 
-- Pure logic (`amount`, `ingredients`) is tested directly.
-- Persistence (`repository`, `backup`, `store`) runs against `fake-indexeddb`,
-  loaded globally in `vitest.setup.ts`.
-- `src/ui/App.test.tsx` drives the real component tree through
-  `@testing-library/user-event` — clicking, typing, and asserting on what lands
-  in IndexedDB. Prefer adding a case here over mocking a component.
+## Commits and releases
 
-Two environment gotchas, both already handled in `vitest.setup.ts` and the hook
-tests; keep them in mind when writing new tests:
-
-- **fake-indexeddb schedules on `setImmediate`.** A bare `vi.useFakeTimers()`
-  fakes it too and deadlocks every database call. Use
-  `vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })`.
-- jsdom has no `Blob#text` and no `URL.createObjectURL`; both are polyfilled in
-  the setup file for the export path.
+Commits and PR titles use **Conventional Commits** (`feat:`, `fix:`, `chore:`,
+`test:`, `docs:`, …). release-please (being set up) builds a release PR from
+those commits; publishing the release deploys the web app to Cloudflare Pages.
+A PR closes its own sub-issue, never the #6 spec.
 
 ## Deliberately out of scope
 
-Auth, sync, input validation, settings, onboarding, multi-user. Version pruning
-is left for later. Don't add these without being asked.
+Auth, sync, input validation, settings, onboarding, multi-user, version
+pruning, fuzzy search, native (Android/iOS) builds. Don't add these without
+being asked.
