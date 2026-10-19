@@ -101,8 +101,9 @@ base href). Database tests will use
 ## Commits and releases
 
 Commits and PR titles use **Conventional Commits** (`feat:`, `fix:`, `chore:`,
-`test:`, `docs:`, …). release-please (being set up) builds a release PR from
-those commits; publishing the release deploys the web app to Cloudflare Pages.
+`test:`, `docs:`, …). Once set up (#18), release-please will build a release PR
+from those commits, and publishing the release will deploy the web app to
+Cloudflare Pages.
 A PR closes its own sub-issue, never the #6 spec.
 
 ## Deliberately out of scope

@@ -4,9 +4,12 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final manifest =
-      jsonDecode(File('web/manifest.json').readAsStringSync())
-          as Map<String, dynamic>;
+  late Map<String, dynamic> manifest;
+
+  setUpAll(() {
+    manifest = jsonDecode(File('web/manifest.json').readAsStringSync())
+        as Map<String, dynamic>;
+  });
 
   test('manifest start_url and scope are the site root', () {
     expect(manifest['start_url'], '/');
