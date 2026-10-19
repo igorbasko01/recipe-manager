@@ -78,6 +78,8 @@ String formatAmount(double? value) {
   return trimmed.toString();
 }
 
-/// `2.0` → `2`; huge values keep Dart's exponent form rather than overflow.
-String _formatWhole(double value) =>
-    value.abs() < 1e15 ? value.toInt().toString() : value.toString();
+/// `2.0` → `2`; from 1e21 up, the exponent form, as in JS.
+String _formatWhole(double value) {
+  if (value == 0) return '0'; // not `-0`
+  return value.abs() < 1e21 ? value.toStringAsFixed(0) : value.toString();
+}

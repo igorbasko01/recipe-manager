@@ -30,6 +30,11 @@ void main() {
       ]);
     });
 
+    test('appends when afterIndex is out of range', () {
+      expect(names(addRow(rows, emptyRow, afterIndex: 9)).last, '');
+      expect(names(addRow(rows, emptyRow, afterIndex: -5)).first, '');
+    });
+
     test('does not mutate the input', () {
       addRow(rows, emptyRow);
       expect(rows, hasLength(3));

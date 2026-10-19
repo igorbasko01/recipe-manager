@@ -3,7 +3,10 @@
 library;
 
 List<T> addRow<T>(List<T> rows, T Function() makeEmpty, {int? afterIndex}) {
-  final at = afterIndex == null ? rows.length : afterIndex + 1;
+  final at = (afterIndex == null ? rows.length : afterIndex + 1).clamp(
+    0,
+    rows.length,
+  );
   return [...rows]..insert(at, makeEmpty());
 }
 

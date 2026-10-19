@@ -74,6 +74,8 @@ void main() {
 
     test('formats whole numbers without decimals', () {
       expect(formatAmount(2), '2');
+      expect(formatAmount(1e15), '1000000000000000');
+      expect(formatAmount(-0.0), '0');
     });
 
     test('formats common fractions back to fraction notation', () {
