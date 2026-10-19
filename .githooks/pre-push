@@ -1,0 +1,9 @@
+#!/bin/sh
+# Installed by ./setup.sh. Blocks the push when analysis or tests fail.
+set -e
+
+echo "pre-push: flutter analyze"
+flutter analyze
+
+echo "pre-push: flutter test"
+flutter test
