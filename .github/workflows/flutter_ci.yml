@@ -20,3 +20,5 @@ jobs:
         test -f build/web/.nojekyll
         test -f build/web/version.json
         test -d build/web/canvaskit
+        test -f build/web/sqlite3.wasm
+        test -f build/web/drift_worker.js

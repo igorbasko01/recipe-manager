@@ -43,8 +43,11 @@ branch and let the `flutter_ci.yml` workflow run `flutter analyze` and
 What exists today: `lib/main.dart`, `lib/ui/app.dart` (a `MaterialApp`
 titled "Recipes" with a placeholder home page) and `lib/ui/theme.dart`
 (Material 3, light/dark from the system, warm neutral palette `#faf8f4` /
-`#16150f`). The `web/` shell carries the manifest, icons, `CNAME`
-(`recipes.baskorp.com`) and `.nojekyll`.
+`#16150f`), the pure helpers in `lib/core/` (`amount.dart`, `rows.dart`), and
+in `lib/features/recipes/data/` the domain model (`recipe.dart`) and the drift
+schema (`recipe_database.dart`, including the FTS5 `recipes_fts` table). The
+`web/` shell carries the manifest, icons, `CNAME` (`recipes.baskorp.com`),
+`.nojekyll` and the vendored `sqlite3.wasm` / `drift_worker.js`.
 
 Planned (see #6 for the full layout), data flows one way:
 **database (drift) → `RecipeRepository` → `RecipeStore` → widgets.**
@@ -83,6 +86,17 @@ Planned (see #6 for the full layout), data flows one way:
   browser APIs.
 - Adding a field to `Recipe` means updating the backup validator, or imported
   files will be silently rejected.
+
+## Database on web
+
+- `web/sqlite3.wasm` and `web/drift_worker.js` are vendored and pinned to the
+  `sqlite3` and `drift` versions in `pubspec.lock` (recorded with their sha256
+  in `tool/vendored_web_assets.json`). After any `pub upgrade` that moves
+  `drift` or `sqlite3`, run `dart run tool/update_web_assets.dart`, or
+  `test/web/web_shell_test.dart` fails.
+- drift picks a storage backend per browser (OPFS, IndexedDB, …) and logs the
+  choice on open as `recipes db: <implementation> (missing: …)`.
+- No COOP/COEP headers are needed for single-tab use.
 
 ## Generated and vendored files
 
