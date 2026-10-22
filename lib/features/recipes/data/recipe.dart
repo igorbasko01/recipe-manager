@@ -194,6 +194,9 @@ class RecipeVersion {
 
   @override
   int get hashCode => Object.hash(recipeId, timestamp, snapshot);
+
+  @override
+  String toString() => 'RecipeVersion($recipeId, $timestamp)';
 }
 
 /// An in-progress edit, autosaved so a backgrounded tab loses nothing.
@@ -233,4 +236,7 @@ class Draft {
 
   @override
   int get hashCode => Object.hash(recipeId, recipe, savedAt);
+
+  @override
+  String toString() => 'Draft($recipeId, $savedAt)';
 }
