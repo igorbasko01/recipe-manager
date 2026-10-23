@@ -45,7 +45,9 @@ titled "Recipes" with a placeholder home page) and `lib/ui/theme.dart`
 (Material 3, light/dark from the system, warm neutral palette `#faf8f4` /
 `#16150f`), the pure helpers in `lib/core/` (`amount.dart`, `rows.dart`), and
 in `lib/features/recipes/data/` the domain model (`recipe.dart`) and the drift
-schema (`recipe_database.dart`, including the FTS5 `recipes_fts` table). The
+schema (`recipe_database.dart`, including the FTS5 `recipes_fts` table) and
+`RecipeRepository` (`recipe_repository.dart`: snapshot-on-save, revert,
+drafts, and keeping `recipes_fts` in step). The
 `web/` shell carries the manifest, icons, `CNAME` (`recipes.baskorp.com`),
 `.nojekyll` and the vendored `sqlite3.wasm` / `drift_worker.js`.
 
