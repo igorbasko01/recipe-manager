@@ -59,15 +59,4 @@ class RecipeDatabase extends _$RecipeDatabase {
 
   @override
   int get schemaVersion => 1;
-
-  @override
-  MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          await customStatement(
-              "CREATE VIRTUAL TABLE recipes_fts USING fts5("
-              "recipe_id UNINDEXED, title, ingredients, steps, "
-              "tokenize = 'unicode61 remove_diacritics 2')");
-        },
-      );
 }

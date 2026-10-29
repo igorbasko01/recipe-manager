@@ -1,5 +1,4 @@
 import 'package:clock/clock.dart';
-import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:recipe_manager/features/recipes/data/recipe.dart';
@@ -27,14 +26,6 @@ void main() {
     repo = RecipeRepository(db);
   });
   tearDown(() => db.close());
-
-  Future<List<Map<String, Object?>>> ftsRows(String id) async {
-    final rows = await db.customSelect(
-      'SELECT title, ingredients, steps FROM recipes_fts WHERE recipe_id = ?',
-      variables: [Variable.withString(id)],
-    ).get();
-    return [for (final r in rows) r.data];
-  }
 
   group('save', () {
     test('persists a new recipe and returns it', () async {
@@ -117,25 +108,6 @@ void main() {
       expect((await repo.get(saved.id))!.steps, ['Mix.', 'Fry.']);
     });
 
-    test('indexes exactly one recipes_fts row with the joined text', () async {
-      final first = await repo.save(sample(
-        title: 'Bread',
-        ingredients: const [
-          Ingredient(amount: 2, unit: 'cup', name: 'flour', note: 'sifted'),
-          Ingredient(amount: null, unit: '', name: 'salt', note: ''),
-        ],
-        steps: ['Knead.', 'Bake.'],
-      ));
-      await repo.save(first.copyWith(title: 'Rye bread'));
-
-      expect(await ftsRows(first.id), [
-        {
-          'title': 'Rye bread',
-          'ingredients': 'flour sifted salt',
-          'steps': 'Knead. Bake.',
-        }
-      ]);
-    });
   });
 
   group('steps', () {
@@ -169,8 +141,71 @@ void main() {
     });
   });
 
+  group('search', () {
+    test('matches the title, ingredients and steps, case-insensitively',
+        () async {
+      final byTitle = await repo.save(sample(title: 'Banana Bread'));
+      final byIngredient = await repo.save(sample(
+          title: 'Smoothie',
+          ingredients: const [
+            Ingredient(amount: 2, unit: '', name: 'bananas', note: 'ripe'),
+          ]));
+      final byStep =
+          await repo.save(sample(title: 'Pie', steps: ['Slice the banana.']));
+      await repo.save(sample(title: 'Soup', steps: ['Simmer.']));
+
+      expect((await repo.search('BANANA')).map((r) => r.id).toSet(),
+          {byTitle.id, byIngredient.id, byStep.id});
+    });
+
+    test('returns matches most recently updated first', () async {
+      await withClock(
+          Clock.fixed(at(1000)), () => repo.save(sample(title: 'Cake one')));
+      await withClock(
+          Clock.fixed(at(2000)), () => repo.save(sample(title: 'Cake two')));
+
+      expect((await repo.search('cake')).map((r) => r.title),
+          ['Cake two', 'Cake one']);
+    });
+
+    test('matches the trimmed query as one substring', () async {
+      final saved = await repo.save(sample(title: 'Apple crumble'));
+      await repo.save(sample(title: 'Crumble with apple'));
+
+      expect((await repo.search('  apple crum ')).map((r) => r.id),
+          [saved.id]);
+    });
+
+    test('treats % and _ literally', () async {
+      final saved = await repo.save(sample(title: '100% rye'));
+      await repo.save(sample(title: '100 rye'));
+
+      expect((await repo.search('100%')).map((r) => r.id), [saved.id]);
+      expect(await repo.search('_'), isEmpty);
+    });
+
+    test('a blank query returns every recipe', () async {
+      await repo.save(sample(title: 'A'));
+      await repo.save(sample(title: 'B'));
+      expect(await repo.search('  '), hasLength(2));
+    });
+
+    test('does not match the JSON the ingredients and steps are stored as',
+        () async {
+      await repo.save(sample(steps: ['Mix "well".']));
+      expect(await repo.search('note'), isEmpty);
+      expect(await repo.search('amount'), isEmpty);
+      expect(await repo.search('", "'), isEmpty);
+    });
+
+    test('returns nothing when no recipe matches', () async {
+      await repo.save(sample());
+      expect(await repo.search('lasagne'), isEmpty);
+    });
+  });
+
   group('delete', () {
-    test('removes the recipe along with its versions, draft and search row',
+    test('removes the recipe along with its versions and draft',
         () async {
       final saved = await repo.save(sample());
       await repo.save(saved.copyWith(title: 'second'));
@@ -181,7 +216,6 @@ void main() {
       expect(await repo.get(saved.id), isNull);
       expect(await repo.versions(saved.id), isEmpty);
       expect(await repo.draft(saved.id), isNull);
-      expect(await ftsRows(saved.id), isEmpty);
     });
 
     test('leaves other recipes alone', () async {
@@ -189,7 +223,6 @@ void main() {
       final gone = await repo.save(sample(title: 'gone'));
       await repo.delete(gone.id);
       expect((await repo.list()).map((r) => r.id), [keep.id]);
-      expect(await ftsRows(keep.id), hasLength(1));
     });
   });
 

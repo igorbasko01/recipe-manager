@@ -1,5 +1,5 @@
 /// The only code that reads or writes [RecipeDatabase]. Going around it would
-/// skip the version snapshot and the search index.
+/// skip the version snapshot.
 library;
 
 import 'dart:convert';
@@ -25,6 +25,33 @@ class RecipeRepository {
   Future<List<Recipe>> list() async {
     final rows = await (_db.select(_db.recipes)
           ..orderBy([(r) => OrderingTerm.desc(r.updatedAtMs)]))
+        .get();
+    return [for (final row in rows) _toRecipe(row)];
+  }
+
+  /// Recipes whose title, an ingredient's name or note, or a step contains
+  /// [query] (trimmed, case-insensitive for ASCII), most recently updated
+  /// first. A blank query returns every recipe.
+  Future<List<Recipe>> search(String query) async {
+    final text = query.trim();
+    if (text.isEmpty) return list();
+    final escaped =
+        text.replaceAllMapped(RegExp(r'[\\%_]'), (m) => '\\${m[0]}');
+    final rows = await _db
+        .customSelect(
+          r'''
+          SELECT * FROM recipes r
+          WHERE r.title LIKE ?1 ESCAPE '\'
+            OR EXISTS (SELECT 1 FROM json_each(r.ingredients_json) i
+              WHERE json_extract(i.value, '$.name') LIKE ?1 ESCAPE '\'
+                OR json_extract(i.value, '$.note') LIKE ?1 ESCAPE '\')
+            OR EXISTS (SELECT 1 FROM json_each(r.steps_json) s
+              WHERE s.value LIKE ?1 ESCAPE '\')
+          ORDER BY r.updated_at_ms DESC''',
+          variables: [Variable.withString('%$escaped%')],
+          readsFrom: {_db.recipes},
+        )
+        .asyncMap(_db.recipes.mapFromRow)
         .get();
     return [for (final row in rows) _toRecipe(row)];
   }
@@ -61,17 +88,6 @@ class RecipeRepository {
               createdAtMs: next.createdAt,
               updatedAtMs: next.updatedAt,
             ));
-        await _deleteSearchRow(next.id);
-        await _db.customStatement(
-          'INSERT INTO recipes_fts (recipe_id, title, ingredients, steps) '
-          'VALUES (?, ?, ?, ?)',
-          [
-            next.id,
-            next.title,
-            next.ingredients.map((i) => '${i.name} ${i.note}'.trim()).join(' '),
-            next.steps.join(' '),
-          ],
-        );
         return next;
       });
 
@@ -91,11 +107,7 @@ class RecipeRepository {
             .go();
         await (_db.delete(_db.drafts)..where((d) => d.recipeId.equals(id)))
             .go();
-        await _deleteSearchRow(id);
       });
-
-  Future<void> _deleteSearchRow(String id) => _db.customStatement(
-      'DELETE FROM recipes_fts WHERE recipe_id = ?', [id]);
 
   /// Newest first.
   Future<List<RecipeVersion>> versions(String recipeId) async {
