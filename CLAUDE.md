@@ -45,7 +45,9 @@ titled "Recipes" with a placeholder home page) and `lib/ui/theme.dart`
 (Material 3, light/dark from the system, warm neutral palette `#faf8f4` /
 `#16150f`), the pure helpers in `lib/core/` (`amount.dart`, `rows.dart`), and
 in `lib/features/recipes/data/` the domain model (`recipe.dart`) and the drift
-schema (`recipe_database.dart`, including the FTS5 `recipes_fts` table). The
+schema (`recipe_database.dart`) and `RecipeRepository`
+(`recipe_repository.dart`: snapshot-on-save, revert, drafts, and a plain
+`LIKE` search). The
 `web/` shell carries the manifest, icons, `CNAME` (`recipes.baskorp.com`),
 `.nojekyll` and the vendored `sqlite3.wasm` / `drift_worker.js`.
 
@@ -55,8 +57,8 @@ Planned (see #6 for the full layout), data flows one way:
 - `lib/core/` — pure helpers (`amount.dart` fractions, `rows.dart` list
   helpers) and platform seams.
 - `lib/features/recipes/data/` — the `Recipe`/`Ingredient`/`RecipeVersion`/
-  `Draft` model, the drift schema (`recipes`, `versions`, `drafts`, and an
-  FTS5 `recipes_fts` table for search), `RecipeRepository`, `RecipeStore`
+  `Draft` model, the drift schema (`recipes`, `versions`, `drafts`),
+  `RecipeRepository` (which also does the `LIKE` search), `RecipeStore`
   (a `ChangeNotifier` provided with `provider`), and backup encode/parse.
 - `lib/ui/` — pages pushed with `Navigator` (no router): list, view, editor,
   history, backup.
@@ -64,7 +66,7 @@ Planned (see #6 for the full layout), data flows one way:
 ## Rules
 
 - **Only `RecipeRepository` writes to the database.** Anything else would skip
-  the version snapshot and the search index.
+  the version snapshot.
 - **Snapshot-on-save:** every save after the first writes a full snapshot of
   the *previous* state into `versions`, in the same transaction. Version keys
   `(recipeId, timestamp)` must be distinct, so step the timestamp forward on a
@@ -123,5 +125,6 @@ A PR closes its own sub-issue, never the #6 spec.
 ## Deliberately out of scope
 
 Auth, sync, input validation, settings, onboarding, multi-user, version
-pruning, fuzzy search, native (Android/iOS) builds. Don't add these without
-being asked.
+pruning, full-text (FTS) or fuzzy search, native (Android/iOS) builds. Don't
+add these without being asked. In general, build each feature the simplest
+way that works, and add more only when asked.
